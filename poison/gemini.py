@@ -5,7 +5,7 @@ from storage.database import add_bad_word
 load_dotenv()
 genai.configure(api_key=os.getenv("BAD_WORDS"))
 model = genai.GenerativeModel("models/gemini-2.5-pro-exp-03-25")
-print("api_key:", os.getenv("BAD_WORDS"))
+# print("api_key:", os.getenv("BAD_WORDS")) # Uncomment for debugging
 def is_offensive_with_gemini(text: str) -> bool:
     try:
         prompt = f"""

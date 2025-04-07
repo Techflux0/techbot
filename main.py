@@ -8,6 +8,11 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from storage.database import init_db, add_user, add_bad_word, remove_bad_word, get_bad_words, get_users, is_bad_word_in_message, warn_user, get_user_warns, get_group_config, update_group_config, add_authorized_user, remove_authorized_user, is_authorized_user
 from poison.gemini import is_offensive_with_gemini
+from poison.checks import check_dependencies
+
+from poison.checks import check_dependencies
+check_dependencies()
+
 
 load_dotenv()
 AUTHORIZED_USER_ID = int(os.getenv("USER_ID", 0))
@@ -128,7 +133,7 @@ def is_authorized(user_id):
 @dp.message(Command("add"))
 async def add_authorized_user_handler(message: Message):
     if not is_authorized(message.from_user.id):
-        await message.answer("You are not authorized to use this command.")
+        await message.answer("<code>You are not authorized to use this command.</code>")
         return
 
     args = message.text.split(' ')[1:]

@@ -1,0 +1,5 @@
+# ignore this chutya file
+.env
+
+# ignore this chutya folder
+/__pycache__/

@@ -36,10 +36,58 @@ def init_db():
          user_id INTEGER PRIMARY KEY
        )
            """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS banned_users (
+         user_id INTEGER PRIMARY KEY
+       )
+           """)
 
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS quotes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quote TEXT NOT NULL,
+    author TEXT NOT NULL,
+    time_of_day TEXT NOT NULL CHECK(time_of_day IN ('morning', 'afternoon', 'evening', 'night'))
+)
+""")
+
+    cursor.execute('''
+CREATE TABLE IF NOT EXISTS group_quotes (
+    group_id INTEGER PRIMARY KEY,
+    enabled INTEGER DEFAULT 0
+)
+''')       
 
     conn.commit()
     conn.close()
+
+    print("Database initialized.")
+
+def get_all_enabled_groups():
+    from database import conn
+    cursor = conn.cursor()
+    cursor.execute("SELECT group_id FROM group_quotes WHERE enabled = 1")
+    return [row[0] for row in cursor.fetchall()]
+
+# ban users
+def ban_user(user_id: int) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO banned_users (user_id) VALUES (?)", (user_id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+# unban users
+def unban_user(user_id: int) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted > 0
 
 def add_user(user_id: int, name: str):
     conn = sqlite3.connect("./storage/poison.db")
@@ -180,3 +228,54 @@ def get_authorized_users() -> list[int]:
     users = [row[0] for row in cursor.fetchall()]
     conn.close()
     return users
+
+def add_quote(quote: str, author: str, time_of_day: str) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO quotes (quote, author, time_of_day) VALUES (?, ?, ?)",
+                   (quote, author, time_of_day))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+def get_quote(time_of_day: str) -> tuple[str, str] | None:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT quote, author FROM quotes WHERE time_of_day=? ORDER BY RANDOM() LIMIT 1",
+                   (time_of_day,))
+    row = cursor.fetchone()
+    conn.close()
+    return row if row else None
+
+def enable_quotes(group_id: int) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO group_quotes (group_id, enabled) VALUES (?, 1)", (group_id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+def disable_quotes(group_id: int) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO group_quotes (group_id, enabled) VALUES (?, 0)", (group_id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+def quotes_enabled(group_id: int) -> bool:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT enabled FROM group_quotes WHERE group_id=?", (group_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row and row[0] == 1
+
+def get_all_quotes() -> list[tuple[str, str, str]]:
+    conn = sqlite3.connect("./storage/poison.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT quote, author, time_of_day FROM quotes")
+    quotes = cursor.fetchall()
+    conn.close()
+    return quotes

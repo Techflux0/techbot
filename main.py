@@ -8,7 +8,10 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from storage.database import init_db, add_user, add_bad_word, remove_bad_word, get_bad_words, get_users, is_bad_word_in_message, warn_user, get_user_warns, get_group_config, update_group_config, add_authorized_user, remove_authorized_user, is_authorized_user
 from poison.gemini import is_offensive_with_gemini
+from storage.database import add_quote, get_quote, enable_quotes, disable_quotes, get_all_enabled_groups, get_all_quotes
+from datetime import datetime
 from poison.checks import check_dependencies
+from poison.quotes import fetch_quote
 
 from poison.checks import check_dependencies
 check_dependencies()
@@ -26,6 +29,18 @@ bot = Bot(
 )
 
 dp = Dispatcher()
+
+# get_all_quotes
+@dp.message(Command("quotes"))
+async def get_all_quotes_handler(message: Message):
+    quotes = get_all_quotes()
+    if not quotes:
+        await message.answer("No quotes found.")
+    else:
+        response = "Quotes:\n"
+        for quote, author in quotes:
+            response += f"<b>{quote}</b> — <i>{author}</i>\n"
+        await message.answer(response)
 
 @dp.message(CommandStart())
 async def start_handler(message: Message):
@@ -220,6 +235,63 @@ async def monitor_bad_words(message: Message):
             
         except Exception as e:
             print(f"Error: {e}")
+
+
+@dp.message(Command("quote"))
+async def quote_toggle(message: Message):
+    cmd = message.text.split()
+    if len(cmd) < 2 or cmd[1] not in ("on", "off"):
+        await message.reply("Usage: /quote on | /quote off")
+        return
+
+    group_id = message.chat.id
+    if cmd[1] == "on":
+        enable_quotes(group_id)
+        await message.reply("✅ Quotes enabled for this group.")
+    else:
+        disable_quotes(group_id)
+        await message.reply("❌ Quotes disabled for this group.")
+
+async def scheduled_quote():
+    while True:
+        now = datetime.now()
+        hour = now.hour
+        if 5 <= hour < 12:
+            time_slot = "morning"
+        elif 12 <= hour < 17:
+            time_slot = "afternoon"
+        elif 17 <= hour < 21:
+            time_slot = "evening"
+        else:
+            time_slot = "night"
+
+        quote, author = await fetch_quote()
+        if quote and author:
+            add_quote(quote, author, time_slot)
+
+        await asyncio.sleep(3600)  # Fetch every hour
+
+async def send_quotes_to_groups():
+    while True:
+        now = datetime.now()
+        hour = now.hour
+        if 5 <= hour < 12:
+            slot = "morning"
+        elif 12 <= hour < 17:
+            slot = "afternoon"
+        elif 17 <= hour < 21:
+            slot = "evening"
+        else:
+            slot = "night"
+
+        quote_data = get_quote(slot)
+        if quote_data:
+            quote, author = quote_data
+            text = f"<b>{slot.title()} Quote:</b>\n{quote} — <i>{author}</i>"
+            for group_id in get_all_enabled_groups():
+                await bot.send_message(group_id, text)
+
+        await asyncio.sleep(3600)
 
 
 async def main():

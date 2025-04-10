@@ -1,5 +1,6 @@
 import os
 import asyncio
+import aiohttp
 from aiogram import Bot, Dispatcher, types
 from dotenv import load_dotenv
 from aiogram.enums import ParseMode
@@ -29,6 +30,12 @@ bot = Bot(
 )
 
 dp = Dispatcher()
+
+# get enabled groups
+@dp.message(Command("id"))
+async def test_is_command(message: Message):
+    id = message.from_user.id
+    await message.answer(F"Your id: <code>{id}</code>")
 
 # get_all_quotes
 @dp.message(Command("quotes"))
@@ -183,59 +190,72 @@ async def add_authorized_user_handler(message: Message):
 #         await message.answer(f"User with ID {user_id} is not in the authorized users list.")
 
 
-#@dp.message(Command("badwords"))
-@dp.message(Command("badwords"))
-async def get_bad_words_handler(message: Message):
-    words = get_bad_words()
-    if not words:
-        await message.answer("No bad words found.")
-    else:
-        await message.answer(f"Bad words: <code>{', '.join(words)}</code>")
+# #@dp.message(Command("badwords"))
+# @dp.message(Command("badwords"))
+# async def get_bad_words_handler(message: Message):
+#     words = get_bad_words()
+#     if not words:
+#         await message.answer("No bad words found.")
+#     else:
+#         await message.answer(f"Bad words: <code>{', '.join(words)}</code>")
 
-@dp.message(Command("users"))
-async def get_users_handler(message: Message):
-    users = get_users()
-    if not users:
-        await message.answer("No users found.")
-    else:
-        response = "Users:\n"
-        for user_id, name, warns in users:
-            response += f"<b>{name}</b> (<code>{user_id}</code>) - Warns: <b>{warns}</b>\n"
-        await message.answer(response)
+# @dp.message(Command("users"))
+# async def get_users_handler(message: Message):
+#     users = get_users()
+#     if not users:
+#         await message.answer("No users found.")
+#     else:
+#         response = "Users:\n"
+#         for user_id, name, warns in users:
+#             response += f"<b>{name}</b> (<code>{user_id}</code>) - Warns: <b>{warns}</b>\n"
+#         await message.answer(response)
 
-@dp.message()
-async def monitor_bad_words(message: Message):
-    if message.chat.type not in ("group", "supergroup"):
-        return
+# @dp.message()
+# async def monitor_bad_words(message: Message):
+#     if message.chat.type not in ("group", "supergroup"):
+#         return
 
-    if not message.text:
-        return
+#     if not message.text:
+#         return
 
-    if message.chat.type == 'supergroup' or message.chat.type == 'group':
-        admins = await message.chat.get_administrators()
-        admin_user_ids = [admin.user.id for admin in admins]
+#     if message.chat.type == 'supergroup' or message.chat.type == 'group':
+#         admins = await message.chat.get_administrators()
+#         admin_user_ids = [admin.user.id for admin in admins]
 
-        if message.from_user.id in admin_user_ids:
-            return 
+#         if message.from_user.id in admin_user_ids:
+#             return 
 
-    if is_bad_word_in_message(message.text) or is_offensive_with_gemini(message.text):
-        try:
-            await message.delete()
+#     if is_bad_word_in_message(message.text) or is_offensive_with_gemini(message.text):
+#         try:
+#             await message.delete()
 
-            group_id = message.chat.id
-            kick_enabled, ban_enabled = get_group_config(group_id)
+#             group_id = message.chat.id
+#             kick_enabled, ban_enabled = get_group_config(group_id)
 
-            if kick_enabled:
-                await message.chat.kick(message.from_user.id)
-                await message.answer(f"🚫 {message.from_user.first_name} has been kicked for using inappropriate language.")
+#             if kick_enabled:
+#                 await message.chat.kick(message.from_user.id)
+#                 await message.answer(f"🚫 {message.from_user.first_name} has been kicked for using inappropriate language.")
 
-            if ban_enabled:
-                await message.chat.ban(message.from_user.id)
-                await message.answer(f"🚫 {message.from_user.first_name} has been banned for using inappropriate language.")
+#             if ban_enabled:
+#                 await message.chat.ban(message.from_user.id)
+#                 await message.answer(f"🚫 {message.from_user.first_name} has been banned for using inappropriate language.")
             
-        except Exception as e:
-            print(f"Error: {e}")
+#         except Exception as e:
+#             print(f"Error: {e}")
 
+# addedd
+quote = os.getenv("QUOTES")
+print(F"Your chutya api key is: {quote}")
+async def fetch_quote():
+    url = "https://api.api-ninjas.com/v1/quotes"
+    headers = {"X-Api-Key": quote}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            data = await resp.json()
+            print(data)
+            if data:
+                return data[0]["quote"], data[0]["author"]
+    return None, None
 
 @dp.message(Command("quote"))
 async def quote_toggle(message: Message):
@@ -269,7 +289,7 @@ async def scheduled_quote():
         if quote and author:
             add_quote(quote, author, time_slot)
 
-        await asyncio.sleep(3600)  # Fetch every hour
+        await asyncio.sleep(60)  # api call every 60 seconds
 
 async def send_quotes_to_groups():
     while True:
@@ -291,7 +311,7 @@ async def send_quotes_to_groups():
             for group_id in get_all_enabled_groups():
                 await bot.send_message(group_id, text)
 
-        await asyncio.sleep(3600)
+        await asyncio.sleep(60) # api call every 60 seconds
 
 
 async def main():

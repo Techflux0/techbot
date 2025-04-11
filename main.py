@@ -247,7 +247,7 @@ async def monitor_bad_words(message: Message):
         if message.from_user.id in admin_user_ids:
             return 
 
-    if is_bad_word_in_message(message.text) or is_offensive_with_gemini(message.text):
+    if is_bad_word_in_message(message.text):# or is_offensive_with_gemini(message.text):
         try:
             await message.delete()
 

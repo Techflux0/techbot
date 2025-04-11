@@ -1,6 +1,9 @@
 import os
 import asyncio
 import aiohttp
+import ssl
+import certifi
+import logging
 from aiogram import Bot, Dispatcher, types
 from dotenv import load_dotenv
 from aiogram.enums import ParseMode
@@ -31,6 +34,25 @@ bot = Bot(
 
 dp = Dispatcher()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.info("Starting bot...")
+
+logger.info("Bot started.")
+logger.info("Bot is running...")
+logger.info("Bot is ready.")
+logger.info("Bot is online.")
+logger.info("Bot is operational.")
+logger.info("Bot is active.")
+
+#log errors into a file
+logging.basicConfig(filename='bot_errors.log', level=logging.ERROR)
+logger.error("Error occurred: %s", "Error message here")
+logger.info("Error logging initialized.")
+logger.info("Bot is ready to receive commands.")
+logger.info("Bot is ready to process messages.")
+logger.info("Bot is ready to handle commands.")
 # get enabled groups
 @dp.message(Command("id"))
 async def test_is_command(message: Message):
@@ -169,93 +191,111 @@ async def add_authorized_user_handler(message: Message):
         await message.answer(f"User is already in the authorized users list.")
 
 # # /remove <user_id> command to remove a user from the authorized users list
-# @dp.message(Command("remove"))
-# async def remove_authorized_user_handler(message: Message):
-#     if not is_authorized(message.from_user.id):
-#         await message.answer("You are not authorized to use this command.")
-#         return
+@dp.message(Command("remove"))
+async def remove_authorized_user_handler(message: Message):
+    if not is_authorized(message.from_user.id):
+        await message.answer("You are not authorized to use this command.")
+        return
 
-#     args = message.text.split(' ')[1:]
-#     if len(args) != 1:
-#         await message.answer("Usage: /remove <user_id>")
-#         return
+    args = message.text.split(' ')[1:]
+    if len(args) != 1:
+        await message.answer("Usage: /remove <user_id>")
+        return
 
-#     user_id = int(args[0])
+    user_id = int(args[0])
 
-#     if remove_authorized_user(user_id):
-#         # Send a plain message without any formatting
-#         await message.answer(f"User with ID {user_id} has been removed from the authorized users list.")
-#     else:
-#         # Ensure this message also does not contain any formatting issues
-#         await message.answer(f"User with ID {user_id} is not in the authorized users list.")
+    if remove_authorized_user(user_id):
+        # Send a plain message without any formatting
+        await message.answer(f"User with ID {user_id} has been removed from the authorized users list.")
+    else:
+        # Ensure this message also does not contain any formatting issues
+        await message.answer(f"User with ID {user_id} is not in the authorized users list.")
 
 
-# #@dp.message(Command("badwords"))
-# @dp.message(Command("badwords"))
-# async def get_bad_words_handler(message: Message):
-#     words = get_bad_words()
-#     if not words:
-#         await message.answer("No bad words found.")
-#     else:
-#         await message.answer(f"Bad words: <code>{', '.join(words)}</code>")
+#@dp.message(Command("badwords"))
+@dp.message(Command("badwords"))
+async def get_bad_words_handler(message: Message):
+    words = get_bad_words()
+    if not words:
+        await message.answer("No bad words found.")
+    else:
+        await message.answer(f"Bad words: <code>{', '.join(words)}</code>")
 
-# @dp.message(Command("users"))
-# async def get_users_handler(message: Message):
-#     users = get_users()
-#     if not users:
-#         await message.answer("No users found.")
-#     else:
-#         response = "Users:\n"
-#         for user_id, name, warns in users:
-#             response += f"<b>{name}</b> (<code>{user_id}</code>) - Warns: <b>{warns}</b>\n"
-#         await message.answer(response)
+@dp.message(Command("users"))
+async def get_users_handler(message: Message):
+    users = get_users()
+    if not users:
+        await message.answer("No users found.")
+    else:
+        response = "Users:\n"
+        for user_id, name, warns in users:
+            response += f"<b>{name}</b> (<code>{user_id}</code>) - Warns: <b>{warns}</b>\n"
+        await message.answer(response)
 
-# @dp.message()
-# async def monitor_bad_words(message: Message):
-#     if message.chat.type not in ("group", "supergroup"):
-#         return
+@dp.message()
+async def monitor_bad_words(message: Message):
+    if message.chat.type not in ("group", "supergroup"):
+        return
 
-#     if not message.text:
-#         return
+    if not message.text:
+        return
 
-#     if message.chat.type == 'supergroup' or message.chat.type == 'group':
-#         admins = await message.chat.get_administrators()
-#         admin_user_ids = [admin.user.id for admin in admins]
+    if message.chat.type == 'supergroup' or message.chat.type == 'group':
+        admins = await message.chat.get_administrators()
+        admin_user_ids = [admin.user.id for admin in admins]
 
-#         if message.from_user.id in admin_user_ids:
-#             return 
+        if message.from_user.id in admin_user_ids:
+            return 
 
-#     if is_bad_word_in_message(message.text) or is_offensive_with_gemini(message.text):
-#         try:
-#             await message.delete()
+    if is_bad_word_in_message(message.text) or is_offensive_with_gemini(message.text):
+        try:
+            await message.delete()
 
-#             group_id = message.chat.id
-#             kick_enabled, ban_enabled = get_group_config(group_id)
+            group_id = message.chat.id
+            kick_enabled, ban_enabled = get_group_config(group_id)
 
-#             if kick_enabled:
-#                 await message.chat.kick(message.from_user.id)
-#                 await message.answer(f"🚫 {message.from_user.first_name} has been kicked for using inappropriate language.")
+            if kick_enabled:
+                await message.chat.kick(message.from_user.id)
+                await message.answer(f"🚫 {message.from_user.first_name} has been kicked for using inappropriate language.")
 
-#             if ban_enabled:
-#                 await message.chat.ban(message.from_user.id)
-#                 await message.answer(f"🚫 {message.from_user.first_name} has been banned for using inappropriate language.")
+            if ban_enabled:
+                await message.chat.ban(message.from_user.id)
+                await message.answer(f"🚫 {message.from_user.first_name} has been banned for using inappropriate language.")
             
-#         except Exception as e:
-#             print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
 
-# addedd
 quote = os.getenv("QUOTES")
-print(F"Your chutya api key is: {quote}")
+def get_time_slot():
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        return "morning"
+    elif 12 <= hour < 17:
+        return "afternoon"
+    elif 17 <= hour < 21:
+        return "evening"
+    else:
+        return "night"
+
 async def fetch_quote():
     url = "https://api.api-ninjas.com/v1/quotes"
     headers = {"X-Api-Key": quote}
-    async with aiohttp.ClientSession() as session:
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
         async with session.get(url, headers=headers) as resp:
             data = await resp.json()
-            print(data)
             if data:
                 return data[0]["quote"], data[0]["author"]
     return None, None
+
+@dp.message(Command("getquote"))
+async def getquote(message: Message):
+    quote, author = await fetch_quote()
+    if quote and author:
+        await message.reply(f"🧠 <b>{quote}</b>\n— <i>{author}</i>")
+    else:
+        await message.reply("❌ Failed to fetch quote.")
 
 @dp.message(Command("quote"))
 async def quote_toggle(message: Message):
@@ -272,47 +312,29 @@ async def quote_toggle(message: Message):
         disable_quotes(group_id)
         await message.reply("❌ Quotes disabled for this group.")
 
-async def scheduled_quote():
+# Keeps fetching and storing quotes every minute
+async def quote_fetcher_loop():
     while True:
-        now = datetime.now()
-        hour = now.hour
-        if 5 <= hour < 12:
-            time_slot = "morning"
-        elif 12 <= hour < 17:
-            time_slot = "afternoon"
-        elif 17 <= hour < 21:
-            time_slot = "evening"
-        else:
-            time_slot = "night"
-
+        time_slot = get_time_slot()
         quote, author = await fetch_quote()
         if quote and author:
             add_quote(quote, author, time_slot)
+        await asyncio.sleep(60)  # Every 60 seconds
 
-        await asyncio.sleep(60)  # api call every 60 seconds
-
-async def send_quotes_to_groups():
+# Sends the correct time slot quote to all groups
+async def quote_sender_loop():
+    last_sent_slot = None
     while True:
-        now = datetime.now()
-        hour = now.hour
-        if 5 <= hour < 12:
-            slot = "morning"
-        elif 12 <= hour < 17:
-            slot = "afternoon"
-        elif 17 <= hour < 21:
-            slot = "evening"
-        else:
-            slot = "night"
-
-        quote_data = get_quote(slot)
-        if quote_data:
-            quote, author = quote_data
-            text = f"<b>{slot.title()} Quote:</b>\n{quote} — <i>{author}</i>"
-            for group_id in get_all_enabled_groups():
-                await bot.send_message(group_id, text)
-
-        await asyncio.sleep(60) # api call every 60 seconds
-
+        current_slot = get_time_slot()
+        if current_slot != last_sent_slot:
+            quote_data = get_quote(current_slot)
+            if quote_data:
+                quote, author = quote_data
+                text = f"<b>{current_slot.title()} Quote:</b>\n🧠 {quote} — <i>{author}</i>"
+                for group_id in get_all_enabled_groups():
+                    await bot.send_message(group_id, text)
+            last_sent_slot = current_slot
+        await asyncio.sleep(60)  # Every 60 seconds
 
 async def main():
     init_db()
